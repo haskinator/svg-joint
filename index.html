@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Processing</title>
+  </head>
+  <body>
+    <input type="file" id="svgInput" multiple />
+    <button onclick="processSVGs()">Process SVGs</button>
+    <button onclick="downloadIconPaths()">Download Icon Paths</button>
+
+    <script>
+      const iconPaths = {}
+
+      function processSVGs() {
+        const input = document.getElementById("svgInput")
+        const files = input.files
+
+        for (const file of files) {
+          const reader = new FileReader()
+
+          reader.onload = function (e) {
+            const svgContent = e.target.result
+            const parser = new DOMParser()
+            const doc = parser.parseFromString(svgContent, "image/svg+xml")
+            const paths = []
+
+            const pathElements = doc.querySelectorAll("path")
+            pathElements.forEach((pathElement) => {
+              const pathAttribute = pathElement.getAttribute("d")
+              paths.push(`<path d="${pathAttribute}"></path>`)
+            })
+
+            const iconName = file.name.replace(".svg", "")
+            iconPaths[iconName] = `(<>${paths.join("")}</>)`
+
+            if (Object.keys(iconPaths).length === files.length) {
+              // All SVGs processed
+              console.log(iconPaths)
+            }
+          }
+
+          reader.readAsText(file)
+        }
+      }
+
+      function downloadIconPaths() {
+        const iconPathsString = JSON.stringify(iconPaths, null, 2)
+        const blob = new Blob([`const iconPaths = ${iconPathsString};\n\nexport default iconPaths;`], { type: "text/plain" })
+        const url = URL.createObjectURL(blob)
+
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "iconPaths."
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    </script>
+  </body>
+</html>
