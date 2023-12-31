@@ -7,17 +7,11 @@
   </head>
   <body>
     <input type="file" id="svgInput" multiple />
-    <button onclick="processSVGs()">Process SVGs</button>
-    <button onclick="downloadIconPaths()">Download Icon Paths</button>
+    <button onclick="processAndDownload()">Download Icon Paths</button>
 
     <script>
-      const iconPaths = {}
-
-      function processSVGs() {
-        const input = document.getElementById("svgInput")
-        const files = input.files
-
-        for (const file of files) {
+      function processSVG(file) {
+        return new Promise((resolve) => {
           const reader = new FileReader()
 
           reader.onload = function (e) {
@@ -33,21 +27,33 @@
             })
 
             const iconName = file.name.replace(".svg", "")
-            iconPaths[iconName] = `(<>${paths.join("")}</>)`
+            const iconPath = `(<>${paths.join("")}</>)`
 
-            if (Object.keys(iconPaths).length === files.length) {
-              // All SVGs processed
-              console.log(iconPaths)
-            }
+            resolve({ iconName, iconPath })
           }
 
           reader.readAsText(file)
-        }
+        })
       }
 
-      function downloadIconPaths() {
-        const iconPathsString = JSON.stringify(iconPaths, null, 2)
-        const blob = new Blob([`const iconPaths = ${iconPathsString};\n\nexport default iconPaths;`], { type: "text/plain" })
+      async function processSVGs(files) {
+        const promises = Array.from(files).map((file) => processSVG(file))
+        return Promise.all(promises)
+      }
+
+      function downloadIconPaths(iconPaths) {
+        let iconPathsString = "const iconPaths = {\n"
+
+        for (const key in iconPaths) {
+          const pathValue = iconPaths[key]
+          iconPathsString += `  "${key}": ${pathValue},\n`
+        }
+
+        iconPathsString += "};\n\nexport default iconPaths;"
+
+        const blob = new Blob([iconPathsString], {
+          type: "text/plain",
+        })
         const url = URL.createObjectURL(blob)
 
         const a = document.createElement("a")
@@ -57,6 +63,20 @@
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
+      }
+
+      async function processAndDownload() {
+        const input = document.getElementById("svgInput")
+        const files = input.files
+
+        const processedIcons = await processSVGs(files)
+        const iconPaths = {}
+
+        processedIcons.forEach(({ iconName, iconPath }) => {
+          iconPaths[iconName] = iconPath
+        })
+
+        downloadIconPaths(iconPaths)
       }
     </script>
   </body>
